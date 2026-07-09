@@ -43,6 +43,10 @@ func (l QUICEncryptionLevel) String() string {
 type QUICConn struct {
 	conn *Conn
 
+	// handshakeFn overrides conn.HandshakeContext when set.
+	// Used by QUICClientWithID to apply Chrome client hello via *UConn.
+	handshakeFn func(context.Context) error
+
 	sessionTicketSent bool
 }
 
@@ -176,6 +180,24 @@ func QUICClient(config *QUICConfig) *QUICConn {
 	return newQUICConn(Client(nil, config.TLSConfig), config)
 }
 
+// QUICClientWithID returns a new TLS client side connection using QUICTransport,
+// with a specific ClientHelloID (e.g. HelloChrome_Auto) for fingerprint customization.
+// The underlying TLS connection uses UConn to apply the specified ClientHelloID.
+func QUICClientWithID(config *QUICConfig, clientHelloID ClientHelloID) *QUICConn {
+	uconn := UClient(nil, config.TLSConfig, clientHelloID, false, false, false)
+	// Setup QUIC state on the underlying Conn (embedded in UConn)
+	uconn.quic = &quicState{
+		signalc:             make(chan struct{}),
+		blockedc:            make(chan struct{}),
+		enableSessionEvents: config.EnableSessionEvents,
+	}
+	uconn.quic.events = uconn.quic.eventArr[:0]
+	return &QUICConn{
+		conn:        uconn.Conn, // extract embedded *Conn for all non-handshake ops
+		handshakeFn: uconn.HandshakeContext, // UConn.HandshakeContext applies Chrome preset
+	}
+}
+
 // QUICServer returns a new TLS server side connection using QUICTransport as the
 // underlying transport. The config cannot be nil.
 //
@@ -208,7 +230,11 @@ func (q *QUICConn) Start(ctx context.Context) error {
 	if q.conn.config.MinVersion < VersionTLS13 {
 		return quicError(errors.New("tls: Config MinVersion must be at least TLS 1.3"))
 	}
-	go q.conn.HandshakeContext(ctx)
+	if q.handshakeFn != nil {
+		go q.handshakeFn(ctx)
+	} else {
+		go q.conn.HandshakeContext(ctx)
+	}
 	if _, ok := <-q.conn.quic.blockedc; !ok {
 		return q.conn.handshakeErr
 	}
