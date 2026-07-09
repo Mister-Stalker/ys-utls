@@ -678,6 +678,8 @@ var (
 	HelloChrome_131 = ClientHelloID{helloChrome, false, "131", nil, nil, EmptyClientHelloSpecFactory}
 	// Chrome w/ New ALPS codepoint
 	HelloChrome_133 = ClientHelloID{helloChrome, false, "133", nil, nil, EmptyClientHelloSpecFactory}
+	// Chrome 133 for QUIC (h3 ALPN, no ALPS, suitable for QUIC connections)
+	HelloChrome_133_QUIC = ClientHelloID{helloChrome, false, "133_QUIC", nil, nil, EmptyClientHelloSpecFactory}
 	HelloChrome_109 = ClientHelloID{helloChrome, false, "109", nil, nil, EmptyClientHelloSpecFactory}
 	HelloChrome_110 = ClientHelloID{helloChrome, false, "110", nil, nil, EmptyClientHelloSpecFactory}
 	HelloChrome_111 = ClientHelloID{helloChrome, false, "111", nil, nil, EmptyClientHelloSpecFactory}
