@@ -143,6 +143,15 @@ func (uconn *UConn) buildHandshakeState(loadSession bool) error {
 			return err
 		}
 
+		// [UTLS] QUIC transport parameters — добавляем если установлены через SetTransportParameters
+		if uconn.quic != nil && uconn.quic.transportParams != nil {
+			tp := &GenericExtension{
+				Id:   ExtensionQUICTransportParameters,
+				Data: uconn.quic.transportParams,
+			}
+			uconn.Extensions = append(uconn.Extensions, tp)
+		}
+
 		if loadSession {
 			err = uconn.uLoadSession()
 			if err != nil {
