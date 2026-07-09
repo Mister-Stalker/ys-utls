@@ -654,32 +654,35 @@ func (uconn *UConn) MarshalClientHelloNoECH() error {
 	binary.Write(bufferedWriter, binary.BigEndian, uint8(len(hello.CompressionMethods)))
 	binary.Write(bufferedWriter, binary.BigEndian, hello.CompressionMethods)
 
-		if len(uconn.Extensions) > 0 {
-			binary.Write(bufferedWriter, binary.BigEndian, uint16(extensionsLen))
-			for _, ext := range uconn.Extensions {
-				if _, err := bufferedWriter.ReadFrom(ext); err != nil {
-					return err
+			if len(uconn.Extensions) > 0 {
+				binary.Write(bufferedWriter, binary.BigEndian, uint16(extensionsLen))
+				for _, ext := range uconn.Extensions {
+					if _, err := bufferedWriter.ReadFrom(ext); err != nil {
+						return err
+					}
 				}
 			}
-		}
 
-		// [UTLS] QUIC transport parameters — добавляем если установлены через SetTransportParameters
-		// не входят в Extensions пресета, но необходимы для QUIC handshake
-		if hello.QuicTransportParameters != nil {
-			// We need to patch the extensions length since we're adding after the loop
-			// This is a hack: rewrite the extensions length in the buffer
-			raw := helloBuffer.Bytes()
-			// Extensions length is at offset: 4 (record header) + 2 (version) + 32 (random) + 1 + sessionIdLen + 2 + cipherSuitesLen + 1 + compLen
-			extOffset := 4 + 2 + 32 + 1 + len(hello.SessionId) + 2 + len(hello.CipherSuites)*2 + 1 + len(hello.CompressionMethods)
-			oldLen := uint16(raw[extOffset])<<8 | uint16(raw[extOffset+1])
-						newLen := oldLen + uint16(4 + len(hello.QuicTransportParameters)) // 2 id + 2 len + data
-			raw[extOffset] = byte(newLen >> 8)
-			raw[extOffset+1] = byte(newLen)
-			// Append QUIC transport params extension at the end
-			binary.Write(bufferedWriter, binary.BigEndian, uint16(ExtensionQUICTransportParameters))
-			binary.Write(bufferedWriter, binary.BigEndian, uint16(len(hello.QuicTransportParameters)))
-			bufferedWriter.Write(hello.QuicTransportParameters)
-		}
+			// [UTLS] QUIC transport parameters — добавляем если установлены через SetTransportParameters
+			// не входят в Extensions пресета, но необходимы для QUIC handshake
+			if hello.QuicTransportParameters != nil {
+				// Flush first so we can patch the extensions length in the buffer
+				if err := bufferedWriter.Flush(); err != nil {
+					return err
+				}
+				raw := helloBuffer.Bytes()
+				extOffset := 4 + 2 + 32 + 1 + len(hello.SessionId) + 2 + len(hello.CipherSuites)*2 + 1 + len(hello.CompressionMethods)
+				oldLen := uint16(raw[extOffset])<<8 | uint16(raw[extOffset+1])
+				extraLen := uint16(4 + len(hello.QuicTransportParameters))
+				raw[extOffset] = byte((oldLen + extraLen) >> 8)
+				raw[extOffset+1] = byte(oldLen + extraLen)
+				// Append QUIC transport params extension to buffer directly
+				extData := make([]byte, 4+len(hello.QuicTransportParameters))
+				binary.BigEndian.PutUint16(extData[0:2], ExtensionQUICTransportParameters)
+				binary.BigEndian.PutUint16(extData[2:4], uint16(len(hello.QuicTransportParameters)))
+				copy(extData[4:], hello.QuicTransportParameters)
+				helloBuffer.Write(extData)
+			}
 
 	err := bufferedWriter.Flush()
 	if err != nil {
