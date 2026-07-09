@@ -321,17 +321,17 @@ func (c *Conn) makeClientHelloForApplyPreset() (*clientHelloMsg, *keySharePrivat
 		// }
 	}
 
-	// [UTLS] We don't need this, since it is not ready yet
-	// if c.quic != nil {
-	// 	p, err := c.quicGetTransportParameters()
-	// 	if err != nil {
-	// 		return nil, nil, nil, err
-	// 	}
-	// 	if p == nil {
-	// 		p = []byte{}
-	// 	}
-	// 	hello.quicTransportParameters = p
-	// }
+	// [UTLS] QUIC transport parameters — необходимы для QUIC handshake
+	if c.quic != nil {
+		p, err := c.quicGetTransportParameters()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if p == nil {
+			p = []byte{}
+		}
+		hello.quicTransportParameters = p
+	}
 
 	var ech *echClientContext
 	if c.config.EncryptedClientHelloConfigList != nil {
