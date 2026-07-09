@@ -1099,7 +1099,6 @@ func utlsIdToSpec(id ClientHelloID) (ClientHelloSpec, error) {
 				&SupportedVersionsExtension{[]uint16{
 					GREASE_PLACEHOLDER,
 					VersionTLS13,
-					VersionTLS12,
 				}},
 				&UtlsCompressCertExtension{[]CertCompressionAlgo{
 					CertCompressionBrotli,
