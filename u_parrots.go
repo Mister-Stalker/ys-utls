@@ -1171,7 +1171,6 @@ func utlsIdToSpec(id ClientHelloID) (ClientHelloSpec, error) {
 					PskModeDHE,
 				}},
 				&SupportedVersionsExtension{[]uint16{
-					GREASE_PLACEHOLDER,
 					VersionTLS13,
 				}},
 				&UtlsCompressCertExtension{[]CertCompressionAlgo{
