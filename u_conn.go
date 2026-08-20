@@ -672,27 +672,6 @@ func (uconn *UConn) MarshalClientHelloNoECH() error {
 				}
 			}
 
-			// [UTLS] QUIC transport parameters — добавляем если установлены через SetTransportParameters
-			// не входят в Extensions пресета, но необходимы для QUIC handshake
-			if hello.QuicTransportParameters != nil {
-				// Flush first so we can patch the extensions length in the buffer
-				if err := bufferedWriter.Flush(); err != nil {
-					return err
-				}
-				raw := helloBuffer.Bytes()
-				extOffset := 4 + 2 + 32 + 1 + len(hello.SessionId) + 2 + len(hello.CipherSuites)*2 + 1 + len(hello.CompressionMethods)
-				oldLen := uint16(raw[extOffset])<<8 | uint16(raw[extOffset+1])
-				extraLen := uint16(4 + len(hello.QuicTransportParameters))
-				raw[extOffset] = byte((oldLen + extraLen) >> 8)
-				raw[extOffset+1] = byte(oldLen + extraLen)
-				// Append QUIC transport params extension to buffer directly
-				extData := make([]byte, 4+len(hello.QuicTransportParameters))
-				binary.BigEndian.PutUint16(extData[0:2], ExtensionQUICTransportParameters)
-				binary.BigEndian.PutUint16(extData[2:4], uint16(len(hello.QuicTransportParameters)))
-				copy(extData[4:], hello.QuicTransportParameters)
-				helloBuffer.Write(extData)
-			}
-
 	err := bufferedWriter.Flush()
 	if err != nil {
 		return err

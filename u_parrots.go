@@ -1181,6 +1181,59 @@ func utlsIdToSpec(id ClientHelloID) (ClientHelloSpec, error) {
 				&UtlsGREASEExtension{},
 			}),
 		}, nil
+	case HelloChrome_151_QUIC.Str():
+		// Chrome 151 QUIC ClientHello, captured 2026-08-20 (151.0.7922.169).
+		// Reference: temp/research/chrome151-quic-ch-spec.md.
+		//
+		// Clean TLS 1.3, no GREASE anywhere (ciphers/groups/versions/extensions),
+		// no legacy extensions. Session ID length is 0 for QUIC (handled by the
+		// QUIC path in ApplyPreset). Extension order is a uniform random
+		// permutation on every handshake; quic_transport_parameters (57) is added
+		// by quic-go after this preset (not part of the spec).
+		return ClientHelloSpec{
+			CipherSuites: []uint16{
+				TLS_AES_128_GCM_SHA256,       // 0x1301
+				TLS_AES_256_GCM_SHA384,       // 0x1302
+				TLS_CHACHA20_POLY1305_SHA256, // 0x1303
+			},
+			CompressionMethods: []byte{
+				0x00, // compressionNone
+			},
+			Extensions: shuffleChromeTLSExtensionsUniform([]TLSExtension{
+				&SNIExtension{}, // 0 server_name
+				&SupportedCurvesExtension{[]CurveID{ // 10 supported_groups
+					X25519MLKEM768, // 0x11ec
+					X25519,         // 0x001d
+					CurveP256,      // 0x0017
+					CurveP384,      // 0x0018
+				}},
+				&SignatureAlgorithmsExtension{SupportedSignatureAlgorithms: []SignatureScheme{ // 13
+					ECDSAWithP256AndSHA256, // 0x0403
+					PSSWithSHA256,          // 0x0804
+					PKCS1WithSHA256,        // 0x0401
+					ECDSAWithP384AndSHA384, // 0x0503
+					PSSWithSHA384,          // 0x0805
+					PKCS1WithSHA384,        // 0x0501
+					PSSWithSHA512,          // 0x0806
+					PKCS1WithSHA512,        // 0x0601
+					PKCS1WithSHA1,          // 0x0201
+				}},
+				&ALPNExtension{AlpnProtocols: []string{"h3"}}, // 16
+				&UtlsCompressCertExtension{[]CertCompressionAlgo{ // 27 compress_certificate
+					CertCompressionBrotli,
+				}},
+				&SupportedVersionsExtension{[]uint16{VersionTLS13}}, // 43 (TLS 1.3 only)
+				&PSKKeyExchangeModesExtension{[]uint8{ // 45
+					PskModeDHE,
+				}},
+				&KeyShareExtension{[]KeyShare{ // 51: X25519MLKEM768 (1216B) then x25519 (32B)
+					{Group: X25519MLKEM768},
+					{Group: X25519},
+				}},
+				&ApplicationSettingsExtensionNew{SupportedProtocols: []string{"h3"}}, // 17613 ALPS
+				BoringGREASEECH(), // 65037 GREASE ECH (outer, HKDF-SHA256/AES-128-GCM)
+			}),
+		}, nil
 	case HelloFirefox_55.Str(), HelloFirefox_56.Str():
 		return ClientHelloSpec{
 			TLSVersMax: VersionTLS12,
@@ -3307,6 +3360,46 @@ func ShuffleChromeTLSExtensions(exts []TLSExtension) []TLSExtension {
 	}
 
 	return exts
+}
+
+// shuffleChromeTLSExtensionsUniform uniformly permutes the extension list using
+// a cryptographically seeded PRNG, matching Chrome's fully randomized extension
+// order. Unlike ShuffleChromeTLSExtensions, no extension is treated as
+// positionally invariant: the whole set is permuted on every handshake. The one
+// exception mirrors Chrome (RFC 8446 §4.2.11): a pre_shared_key extension, which
+// is only present during 0-RTT resumption, is always placed last.
+func shuffleChromeTLSExtensionsUniform(exts []TLSExtension) []TLSExtension {
+	if len(exts) < 2 {
+		return exts
+	}
+
+	// Pull pre_shared_key extensions out; they must remain last.
+	var psk []TLSExtension
+	rest := make([]TLSExtension, 0, len(exts))
+	for _, e := range exts {
+		if _, ok := e.(PreSharedKeyExtension); ok {
+			psk = append(psk, e)
+		} else {
+			rest = append(rest, e)
+		}
+	}
+
+	// Uniform Fisher-Yates shuffle of the non-PSK extensions, seeded from
+	// crypto/rand (mirroring ShuffleChromeTLSExtensions).
+	randInt64, err := crand.Int(crand.Reader, big.NewInt(math.MaxInt64))
+	if err != nil {
+		// warning: random could be deterministic
+		rand.Shuffle(len(rest), func(i, j int) {
+			rest[i], rest[j] = rest[j], rest[i]
+		})
+		fmt.Println("Warning: failed to use a cryptographically secure random number generator. The shuffle can be deterministic.")
+	} else {
+		rand.New(rand.NewSource(randInt64.Int64())).Shuffle(len(rest), func(i, j int) {
+			rest[i], rest[j] = rest[j], rest[i]
+		})
+	}
+
+	return append(rest, psk...)
 }
 
 func (uconn *UConn) applyPresetByID(id ClientHelloID) (err error) {

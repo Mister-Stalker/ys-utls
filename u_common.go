@@ -635,7 +635,10 @@ var (
 	HelloFirefox_105  = ClientHelloID{helloFirefox, false, "105", nil, nil, EmptyClientHelloSpecFactory}
 	HelloFirefox_120  = ClientHelloID{helloFirefox, false, "120", nil, nil, EmptyClientHelloSpecFactory}
 
+	// HelloChrome_Auto_QUIC is the Auto target for the QUIC transport path.
+	// It maps to the Chrome 151 QUIC ClientHello profile (HelloChrome_151_QUIC).
 	HelloChrome_Auto        = HelloChrome_133
+	HelloChrome_Auto_QUIC   = HelloChrome_151_QUIC
 	HelloChrome_58          = ClientHelloID{helloChrome, false, "58", nil, nil, EmptyClientHelloSpecFactory}
 	HelloChrome_62          = ClientHelloID{helloChrome, false, "62", nil, nil, EmptyClientHelloSpecFactory}
 	HelloChrome_70          = ClientHelloID{helloChrome, false, "70", nil, nil, EmptyClientHelloSpecFactory}
@@ -680,10 +683,13 @@ var (
 	HelloChrome_133 = ClientHelloID{helloChrome, false, "133", nil, nil, EmptyClientHelloSpecFactory}
 	// Chrome 133 for QUIC (h3 ALPN, no ALPS, suitable for QUIC connections)
 	HelloChrome_133_QUIC = ClientHelloID{helloChrome, false, "133_QUIC", nil, nil, EmptyClientHelloSpecFactory}
-	HelloChrome_109 = ClientHelloID{helloChrome, false, "109", nil, nil, EmptyClientHelloSpecFactory}
-	HelloChrome_110 = ClientHelloID{helloChrome, false, "110", nil, nil, EmptyClientHelloSpecFactory}
-	HelloChrome_111 = ClientHelloID{helloChrome, false, "111", nil, nil, EmptyClientHelloSpecFactory}
-	HelloChrome_112 = ClientHelloID{helloChrome, false, "112", nil, nil, EmptyClientHelloSpecFactory}
+	// Chrome 151 for QUIC: TLS 1.3 only, no GREASE, no legacy extensions,
+	// ALPN/ALPS = h3, GREASE ECH (RFC 9849). Captured from Chrome 151.0.7922.169.
+	HelloChrome_151_QUIC = ClientHelloID{helloChrome, false, "151_QUIC", nil, nil, EmptyClientHelloSpecFactory}
+	HelloChrome_109      = ClientHelloID{helloChrome, false, "109", nil, nil, EmptyClientHelloSpecFactory}
+	HelloChrome_110      = ClientHelloID{helloChrome, false, "110", nil, nil, EmptyClientHelloSpecFactory}
+	HelloChrome_111      = ClientHelloID{helloChrome, false, "111", nil, nil, EmptyClientHelloSpecFactory}
+	HelloChrome_112      = ClientHelloID{helloChrome, false, "112", nil, nil, EmptyClientHelloSpecFactory}
 
 	HelloIOS_Auto = HelloIOS_16_0
 	HelloIOS_11_1 = ClientHelloID{helloIOS, false, "111", nil, nil, EmptyClientHelloSpecFactory} // legacy "111" means 11.1
