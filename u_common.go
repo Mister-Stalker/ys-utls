@@ -708,6 +708,10 @@ var (
 	HelloSafari_16_0   = ClientHelloID{helloSafari, false, "16.0", nil, nil, EmptyClientHelloSpecFactory}
 
 	HelloAndroid_11_OkHttp = ClientHelloID{helloAndroid, false, "11", nil, nil, EmptyClientHelloSpecFactory}
+	// Android 15 OkHttp/Conscrypt (TCP): TLS 1.3 + ALPN [h2, http/1.1].
+	// Spec in UTLSIdToSpec (u_parrots.go); built from Conscrypt sources, to be
+	// re-verified by a capture from a real device (temp/v2_okhttp_profile_audit.md).
+	HelloAndroid_15_OkHttp = ClientHelloID{helloAndroid, false, "15", nil, nil, EmptyClientHelloSpecFactory}
 
 	HelloEdge_Auto = HelloEdge_85 // HelloEdge_106 seems to be incompatible with this library
 	HelloEdge_85   = ClientHelloID{helloEdge, false, "85", nil, nil, EmptyClientHelloSpecFactory}

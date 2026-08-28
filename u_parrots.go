@@ -2248,6 +2248,92 @@ func utlsIdToSpec(id ClientHelloID) (ClientHelloSpec, error) {
 				}},
 			},
 		}, nil
+	case HelloAndroid_15_OkHttp.Str():
+		// Android 15 OkHttp/Conscrypt ClientHello (TCP), built 2026-08-28.
+		// Reference: temp/v2_okhttp_profile_audit.md §6.2; Conscrypt
+		// NativeCrypto.java (sdk-release): SUPPORTED_TLS_1_3_CIPHER_SUITES
+		// (825-829), DEFAULT_X509_CIPHER_SUITES (947-979, AES-hw order),
+		// SCSV (910-911), getSupportedCipherSuites (995-997).
+		//
+		// OkHttp always sends ALPN [h2, http/1.1]; the server picks http/1.1.
+		// TLS 1.3 is offered (Android 10+). No GREASE/ECH/ALPS/
+		// compress_certificate/padding/SCT/record_size_limit — Conscrypt
+		// (Java SSLEngine) does not send them. Extension order follows the
+		// Conscrypt/BoringSSL client order: SNI, EMS, renegotiation_info,
+		// supported_groups, ec_point_formats, status_request,
+		// signature_algorithms, ALPN, supported_versions, key_share,
+		// psk_key_exchange_modes, session_ticket. Verified against sources;
+		// to be re-verified by a capture from a real device later.
+		return ClientHelloSpec{
+			CipherSuites: []uint16{
+				TLS_AES_128_GCM_SHA256,       // 0x1301
+				TLS_AES_256_GCM_SHA384,       // 0x1302
+				TLS_CHACHA20_POLY1305_SHA256, // 0x1303
+				// TLS 1.2: Conscrypt DEFAULT_X509_CIPHER_SUITES (AES-hw order)
+				TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,       // 0xc02b
+				TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,       // 0xc02c
+				TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, // 0xcca9
+				TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,         // 0xc02f
+				TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,         // 0xc030
+				TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256,   // 0xcca8
+				TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA,          // 0xc009
+				TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,          // 0xc00a
+				TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,            // 0xc013
+				TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,            // 0xc014
+				TLS_RSA_WITH_AES_128_GCM_SHA256,               // 0x009c
+				TLS_RSA_WITH_AES_256_GCM_SHA384,               // 0x009d
+				TLS_RSA_WITH_AES_128_CBC_SHA,                  // 0x002f
+				TLS_RSA_WITH_AES_256_CBC_SHA,                  // 0x0035
+				// SCSV markers: Conscrypt appends both at the end
+				FAKE_TLS_EMPTY_RENEGOTIATION_INFO_SCSV, // 0x00ff
+				TLS_FALLBACK_SCSV,                      // 0x5600
+			},
+			CompressionMethods: []byte{
+				CompressionNone,
+			},
+			Extensions: []TLSExtension{
+				&SNIExtension{},
+				&ExtendedMasterSecretExtension{},
+				&RenegotiationInfoExtension{},
+				// supported_groups
+				&SupportedCurvesExtension{[]CurveID{
+					X25519,
+					CurveP256,
+					CurveP384,
+				}},
+				&SupportedPointsExtension{SupportedPoints: []byte{
+					PointFormatUncompressed,
+				}},
+				&StatusRequestExtension{},
+				&SignatureAlgorithmsExtension{SupportedSignatureAlgorithms: []SignatureScheme{
+					ECDSAWithP256AndSHA256,
+					PSSWithSHA256,
+					PKCS1WithSHA256,
+					ECDSAWithP384AndSHA384,
+					PSSWithSHA384,
+					PKCS1WithSHA384,
+					PSSWithSHA512,
+					PKCS1WithSHA512,
+					PKCS1WithSHA1,
+				}},
+				// ALPN: OkHttp always sends [h2, http/1.1]; server picks http/1.1
+				&ALPNExtension{AlpnProtocols: []string{"h2", "http/1.1"}},
+				// supported_versions: TLS 1.3, 1.2, 1.1, 1.0 (no GREASE)
+				&SupportedVersionsExtension{[]uint16{
+					VersionTLS13,
+					VersionTLS12,
+					VersionTLS11,
+					VersionTLS10,
+				}},
+				&KeyShareExtension{[]KeyShare{
+					{Group: X25519},
+				}},
+				&PSKKeyExchangeModesExtension{[]uint8{
+					PskModeDHE,
+				}},
+				&SessionTicketExtension{},
+			},
+		}, nil
 	case HelloIOS_15_5.Str(), HelloIOS_15_6.Str(), HelloIPad_15_6.Str(), HelloIOS_16_0.Str():
 		return ClientHelloSpec{
 			CipherSuites: []uint16{
